@@ -1,0 +1,15 @@
+# MENTORING 1
+
+the column ind_launch_date has a lot of -1 values, is it ok to remove it
+
+Is it ok to remove outliers using the IQR method
+
+Is it fine to scale the data after the removal of outliers or it would be better to do it before
+
+About the "Indication" column, we think that it would be a good idea to create a column with the sum of the number of indications per product, more indications means more price?
+
+mean price per indication
+
+
+
+
