@@ -5,3 +5,4 @@ pandas
 notebook
 folium
 scikit-learn
+tensorflow
