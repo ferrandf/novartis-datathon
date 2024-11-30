@@ -1,9 +1,11 @@
 setwd("Downloads")
 library(dplyr)
 library(tidyr)
+library(lubridate)
 
 # Load data
-data <- read.csv("train_data.csv")
+#data <- read.csv("train_data.csv")
+data <- read.csv("submission_data.csv")
 
 # Data cols
 cols <- colnames(data)
@@ -17,11 +19,6 @@ data$launch_date <- as.Date(data$launch_date)
 
 ################################################################################################
 
-# Remove rows where Drug_ID is "DRUG_ID_4C4E"
-data <- data %>%
-  filter(drug_id != "DRUG_ID_4C4E")
-#--------------------------------------------------------------------------
-
 # Average of price_unit
 average_price <- data %>%
   group_by(country) %>%
@@ -30,6 +27,7 @@ average_price <- data %>%
 # View the result
 print(average_price)
 
+#------------------------------------------------------ it is not modifying the data output
 # Average of price_unit
 average_target <- data %>%
   group_by(country) %>%
@@ -39,6 +37,8 @@ average_target <- data %>%
 print(average_target)
 
 average_data <- merge(average_price, average_target, by = "country")
+
+#------------------------------------------------------
 
 # Set the number of clusters
 set.seed(123) # For reproducibility
@@ -79,7 +79,7 @@ INDICATIONS <- lapply(data$indication, function(x) {
 # Assuming the column with arrays is named "array_column"
 data$indication_number <- sapply(INDICATIONS, function(x) length(x))
 
-#-------------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------- not modifying data output
 # Unnest the 'indication' column so each row has a single indication
 data_expanded <- data %>%
   mutate(indication = as.list(indication)) %>% # Ensure it's a list
@@ -94,11 +94,145 @@ average_price_per_indication <- data_expanded %>%
 print(average_price_per_indication)
 #-------------------------------------------------------------------------------------------
 
+#### create column avg price per year
+data <- data %>%
+  group_by(drug_id) %>%
+  mutate(avg_price_per_year = mean(price_unit, na.rm = TRUE)) %>%
+  ungroup() # Ungroup after the operation to avoid unintended grouping
+
+# Split the data by therapeutical_area
+split_data <- split(data, data$therapeutic_area)
+
+# Example: Accessing one subset (e.g., for the first therapeutic area)
+subset_032C <- split_data[[1]]
+subset_051D <- split_data[[2]]
+subset_22ED <- split_data[[3]]
+subset_4BA5 <- split_data[[4]]
+subset_644A <- split_data[[5]]
+subset_645F <- split_data[[6]]
+subset_66C5 <- split_data[[7]]
+subset_6CEE <- split_data[[8]]
+subset_8E53 <- split_data[[9]]
+subset_96D7 <- split_data[[10]]
+subset_980E <- split_data[[11]]
+subset_CD59 <- split_data[[12]]
+
+# Assuming these variables (subset_032C, subset_051D, ...) exist in your environment
+subsets <- list(
+  subset_032C = subset_032C, 
+  subset_051D = subset_051D, 
+  subset_22ED = subset_22ED, 
+  subset_4BA5 = subset_4BA5, 
+  subset_644A = subset_644A, 
+  subset_645F = subset_645F,
+  subset_66C5 = subset_66C5, 
+  subset_6CEE = subset_6CEE, 
+  subset_8E53 = subset_8E53, 
+  subset_96D7 = subset_96D7, 
+  subset_980E = subset_980E, 
+  subset_CD59 = subset_CD59
+)
+
+#### logtransform in target per subset
+subset_032C$target <- log(subset_032C$target)
+subset_051D$target <- log(subset_051D$target)
+subset_22ED$target <- log(subset_22ED$target)
+subset_4BA5$target <- log(subset_4BA5$target)
+subset_644A$target <- log(subset_644A$target)
+subset_645F$target <- log(subset_645F$target)
+subset_66C5$target <- log(subset_66C5$target)
+subset_6CEE$target <- log(subset_6CEE$target)
+subset_8E53$target <- log(subset_8E53$target)
+subset_96D7$target <- log(subset_96D7$target)
+subset_980E$target <- log(subset_980E$target)
+subset_CD59$target <- log(subset_CD59$target)
+
+### We want to replace outliers with the "limit" value
+
+for (name in names(subsets)) {
+  dataset <- subsets[[name]] # Access the dataset
+  for (col in names(dataset)) { # Iterate over each column
+    if (is.numeric(dataset[[col]])) { # Check if the column is numeric
+      # Calculate the interquartile range (IQR)
+      Q1 <- quantile(dataset[[col]], 0.25, na.rm = TRUE)
+      Q3 <- quantile(dataset[[col]], 0.75, na.rm = TRUE)
+      IQR <- Q3 - Q1
+      
+      # Define lower and upper limits
+      lower_limit <- Q1 - 1.5 * IQR
+      upper_limit <- Q3 + 1.5 * IQR
+      
+      # Transform outliers to the limit values
+      dataset[[col]][dataset[[col]] < lower_limit] <- lower_limit
+      dataset[[col]][dataset[[col]] > upper_limit] <- upper_limit
+    }
+  }
+  subsets[[name]] <- dataset # Update the dataset in the list
+}
+
+## Create a column that assign a number per each month
+for (name in names(subsets)) {
+  dataset <- subsets[[name]]  # Access the dataset
+  
+  if ("date" %in% names(dataset)) {  # Check if 'date' column exists
+    dataset$month_number <- month(dataset$date)  # Extract month as number (1-12)
+  }
+  
+  # Update the original variable outside of the subsets list
+  assign(name, dataset)
+}
+
+# Write the subsets
+write.csv(subset_032C, "subset_032C.csv")
+write.csv(subset_051D, "subset_051D.csv")
+write.csv(subset_22ED, "subset_22ED.csv")
+write.csv(subset_4BA5, "subset_4BA5.csv")
+write.csv(subset_644A, "subset_644A.csv")
+write.csv(subset_645F, "subset_645F.csv")
+write.csv(subset_66C5, "subset_66C5.csv")
+write.csv(subset_6CEE, "subset_6CEE.csv")
+write.csv(subset_8E53, "subset_8E53.csv")
+write.csv(subset_96D7, "subset_96D7.csv")
+write.csv(subset_980E, "subset_980E.csv")
+write.csv(subset_CD59, "subset_CD59.csv")
 
 # Write the data to a CSV file
-write.csv(data, "train_data_TRY1.csv")
+#write.csv(data, "train_data_TRY2.csv")
 
 ################################################################################################
+
+hist(subset_032C$target)
+hist(subset_051D$target)
+hist(subset_22ED$target)
+hist(subset_4BA5$target)
+hist(subset_644A$target)
+hist(subset_645F$target)
+hist(subset_66C5$target)
+hist(subset_6CEE$target)
+hist(subset_8E53$target)
+hist(subset_96D7$target)
+hist(subset_980E$target)
+hist(subset_CD59$target)
+
+
+
+# Initialize an empty list to store the results
+averages <- list()
+
+# Loop through each subset and calculate the mean of "target"
+for (name in names(subsets)) {
+  avg_target <- mean(subsets[[name]]$target, na.rm = TRUE) # Use na.rm = TRUE to handle missing values
+  averages[[name]] <- avg_target
+}
+
+# Convert the results to a data frame for better readability
+averages_df <- data.frame(
+  Subset = names(averages),
+  Average_Target = unlist(averages)
+)
+
+# Print the results
+print(averages_df)
 
 # remove ind_launch_date because it has a lot  of missing data and is not informative
 # data <- data[ , -c(10)]
@@ -249,8 +383,12 @@ for (col_name in categorical_cols) {
 }
 
 
+## Correlation of numerical variables with target
+numerical_data <- data %>% select(where(is.numeric))
 
-# remove indication
-data <- data[ , -c(10)]
+# library(psych)
+# # S3 method for panels
+# pairs(numerical_data)
+      
+cor(numerical_data)
 
-write.csv(data, "First_Clean_train_data.csv")
